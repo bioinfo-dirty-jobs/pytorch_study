@@ -1,75 +1,79 @@
-
-
-criterion = nn.CrossEntropyLoss(weight=weights)
-
-model.train()  # Set model to training mode
-
-global_i = 0
-losses_tr = []
-losses_ts = []
-
-last_loss_test = -1
-iteration = 0
-start_time = time.time()
-
 for epoch in range(EPOCHS):
-    for j, data in enumerate(loader_train):
-        global_i += 1
+      
+        for j, data in enumerate(loader_train):
+            global_i += 1
 
-        optimizer.zero_grad()
+            if j % 10 == 0:
+                print(time.time() - start_time)
+                start_time = time.time()
 
-        images_tr = data["data"].to(device)
-        labels_tr = torch.LongTensor(data["label"]).to(device)
-        outputs_tr = model(images_tr).to(device)
+            optimizer.zero_grad()
 
-        # backward
-        loss = criterion(outputs_tr, labels_tr)
-        loss.backward()
+            images_tr = data["data"].to(device)
+            labels_tr = torch.LongTensor(data["label"]).to(device)
+            outputs_tr = model(images_tr).to(device)
 
-        optimizer.step()
+            # backward
+            loss = criterion(outputs_tr, labels_tr)
+            loss.backward()
 
-        # check test set
-        if j % int(len(loader_train) / 2) == 0 and j != 0:
-            model.eval()
-            with torch.no_grad():
+            optimizer.step()
 
-                losses_sum = 0
-                num_samples_test = 0
+            # check test set
+            if j % int(len(loader_train) / 2) == 0 and j != 0:
+                model.eval()
+                with torch.no_grad():
 
-                for data_test in loader_test:
+                    losses_sum = 0
+                    num_samples_test = 0
 
-                    images_ts = data_test["data"].to(device)
-                    labels_ts = torch.LongTensor(data["label"]).to(device)
+                    for data_test in loader_test:
 
-                    outputs_ts = model.forward(images_ts)
+                        images_ts = data_test["data"].to(device)
+                        labels_ts = torch.LongTensor(data["label"]).to(device)
 
-                    loss_test_sum = criterion(outputs_ts, labels_ts).item()
-                    losses_sum += loss_test_sum
-                    num_samples_test += 1
+                        outputs_ts = model.forward(images_ts)
 
-                loss_test_avg = losses_sum / num_samples_test
-                last_loss_test = loss_test_avg
+                        loss_test_sum = criterion(outputs_ts, labels_ts).item()
+                        losses_sum += loss_test_sum
+                        num_samples_test += 1
 
-            losses_tr.append(loss.item())
-            losses_ts.append(loss_test_avg)
+                    loss_test_avg = losses_sum / num_samples_test
+                    mean_loss_train = losses_sum / (
+                        len(loader_train) * loader_train.batch_size
+                    )
+                    
 
-            del images_ts, labels_ts
+                    last_loss_test = loss_test_avg
 
-        iteration += 1
-        del images_tr, labels_tr
-        gc.collect()
-        model.train()
+                losses_tr.append(loss.item())
+                losses_ts.append(loss_test_avg)
 
-        sys.stdout.write(
-            "\r Epoch {} of {}  [{:.2f}%] - loss TR/TS: {:.4f} / {:.4f} ".format(
-                epoch + 1,
-                EPOCHS,
-                100 * j / len(loader_train),
-                loss.item(),
-                last_loss_test,
-     
+                del images_ts, labels_ts
+
+            iteration += 1
+            del images_tr, labels_tr
+            gc.collect()
+            model.train()
+
+         
+
+            sys.stdout.write(
+                "\r Epoch {} of {}  [{:.2f}%] - loss TR/TS: {:.4f} / {:.4f} ".format(
+                    epoch + 1,
+                    EPOCHS,
+                    100 * j / len(loader_train),
+                    loss.item(),
+                    last_loss_test,
+                    #  optimizer.param_groups[0]["lr"],
                 )
-  
+            )
+        # torch.backends.cuda.cufft_plan_cache.clear()
+
+    # save losses
+    losses_tr = np.array(losses_tr)
+    losses_vl = np.array(losses_ts)
+    
     # Prediction on TRAINING
     model.eval()
 
@@ -101,6 +105,7 @@ for epoch in range(EPOCHS):
     prec_tr = precision(trues_tr, preds_tr, average="weighted")
     rec_tr = recall(trues_tr, preds_tr, average="weighted")
 
+    
     # PREDICTION ON TEST
     model.eval()
 
@@ -130,9 +135,4 @@ for epoch in range(EPOCHS):
     ACC_ts = acc(trues_ts, preds_ts)
     prec_ts = precision(trues_ts, preds_ts, average="weighted")
     rec_ts = recall(trues_ts, preds_ts, average="weighted")
-
-    torch.save(model.state_dict(), f"{EXPERIMENT_DIR}/{EXPERIMENT_NAME}/weights.pth")
-    # %%
-
-    # %%
 
