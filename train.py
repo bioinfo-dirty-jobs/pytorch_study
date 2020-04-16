@@ -1,3 +1,15 @@
+from sklearn.metrics import accuracy_score as acc
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import matthews_corrcoef as mcor
+from sklearn.metrics import precision_score as precision
+from sklearn.metrics import recall_score as recall
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+from torchvision import transforms
+
+
+
+
 for epoch in range(EPOCHS):
       
         for j, data in enumerate(loader_train):
